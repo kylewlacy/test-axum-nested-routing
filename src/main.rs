@@ -9,7 +9,7 @@ async fn main() {
     let router = axum::Router::new()
         .route("/foo", routing::get(|| async { "Foo" }))
         .route("/bar", routing::get(|| async { "Bar" }))
-        .nest("/fizz", fizz)
+        .nest("/fizz", routing::service_method_routing::any(fizz))
         .fallback(top_level_fallback.into_service());
 
     axum::Server::bind(&"0.0.0.0:3333".parse().unwrap())
