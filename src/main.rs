@@ -1,16 +1,21 @@
-use axum::{handler::Handler, routing};
+use std::path::PathBuf;
+
+use axum::{error_handling::HandleErrorExt, handler::Handler, http::StatusCode, routing};
 
 #[tokio::main]
 async fn main() {
-    let fizz = axum::Router::new()
-        .route("/buzz", routing::get(|| async { "FizzBuzz" }))
-        .fallback(fizz_fallback.into_service());
+    let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/static"));
+
+    let swagger = axum::Router::new()
+        .route("/schema.json", routing::get(|| async { "schema.json" }))
+        .fallback(
+            tower_http::services::ServeDir::new(path)
+                .handle_error(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")),
+        );
 
     let router = axum::Router::new()
-        .route("/foo", routing::get(|| async { "Foo" }))
-        .route("/bar", routing::get(|| async { "Bar" }))
-        .nest("/fizz", routing::service_method_routing::any(fizz))
-        .fallback(top_level_fallback.into_service());
+        .nest("/v1/swagger", routing::service_method_routing::any(swagger))
+        .fallback(fallback_handler.into_service());
 
     axum::Server::bind(&"0.0.0.0:3333".parse().unwrap())
         .serve(router.into_make_service())
@@ -18,10 +23,6 @@ async fn main() {
         .unwrap();
 }
 
-async fn top_level_fallback() -> impl axum::response::IntoResponse {
+async fn fallback_handler() -> impl axum::response::IntoResponse {
     "Top level fallback"
-}
-
-async fn fizz_fallback() -> impl axum::response::IntoResponse {
-    "Fizz fallback"
 }
